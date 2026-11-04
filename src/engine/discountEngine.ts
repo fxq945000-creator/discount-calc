@@ -10,6 +10,17 @@ import { PRESETS } from './presets'
 
 const round2 = (n: number): number => Math.round((n + Number.EPSILON) * 100) / 100
 
+/**
+ * 折扣率归一化：把用户直觉输入的「9」理解为 9 折（0.9）。
+ * 防止误输 9 导致 金额×(1-9)=-8 倍这种反向加价。
+ */
+function normalizeRate(r?: number): number {
+  if (r == null || !Number.isFinite(r)) return 1
+  if (r > 1 && r <= 10) return r / 10
+  if (r > 10 || r <= 0) return 1
+  return r
+}
+
 /** 单品多件多折：返回该商品在「单价 unit、数量 qty」下的折后小计 */
 function applyMultiBuy(unit: number, qty: number, mb?: MultiBuy): number {
   if (!mb || qty <= 0) return unit * qty
@@ -29,7 +40,7 @@ function applyMultiBuy(unit: number, qty: number, mb?: MultiBuy): number {
 
   if (mb.type === 'fullMDiscount') {
     const m = mb.m && mb.m > 0 ? mb.m : 1
-    const rate = mb.discountRate ?? 1
+    const rate = normalizeRate(mb.discountRate)
     if (qty >= m) return qty * unit * rate
     return qty * unit
   }
@@ -40,6 +51,9 @@ function applyMultiBuy(unit: number, qty: number, mb?: MultiBuy): number {
 interface CoreResult {
   originalTotal: number
   goodsAmount: number
+  goodsPay: number
+  shippingFee: number
+  freeShipping: boolean
   finalPay: number
   breakdown: BreakdownEntry[]
   cashback: number
@@ -55,7 +69,7 @@ function calcCore(input: CalcInput, stripMember: boolean): CoreResult {
   // 全局会员折扣率（多个会员折扣相乘）
   const memberRates = input.promotions
     .filter((p) => p.type === 'member' && !stripMember && p.memberDiscountRate)
-    .map((p) => p.memberDiscountRate as number)
+    .map((p) => normalizeRate(p.memberDiscountRate as number))
   const globalMemberRate =
     memberRates.length > 0 ? memberRates.reduce((a, b) => a * b, 1) : null
 
@@ -140,10 +154,11 @@ function calcCore(input: CalcInput, stripMember: boolean): CoreResult {
 
     let d = 0
     if (p.reduce != null) {
-      d = p.reduce
+      d = Math.max(0, p.reduce)
     } else if (p.discountRate != null) {
-      d = round2(base * (1 - p.discountRate))
+      d = round2(base * (1 - normalizeRate(p.discountRate)))
     }
+    if (d > base) d = base // 减免不得超过计费基数
     if (d <= 0) continue
 
     running = Math.max(0, running - d)
@@ -160,6 +175,9 @@ function calcCore(input: CalcInput, stripMember: boolean): CoreResult {
           : undefined
     })
   }
+
+  // 券后金额（红包前）—— 作为「满额包邮」的判断基准
+  const payBeforeDeduct = running
 
   // 红包 / 积分 / 淘金币抵扣
   for (const p of input.promotions.filter((x) => x.type === 'deduct')) {
@@ -196,7 +214,41 @@ function calcCore(input: CalcInput, stripMember: boolean): CoreResult {
     })
   }
 
-  const finalPay = round2(Math.max(0, running))
+  // —— 3. 运费（满额包邮按「券后金额」判断） ——
+  const goodsPay = round2(Math.max(0, running))
+  let shippingFee = 0
+  let freeShipping = true
+  const ship = input.shipping
+  if (ship?.enabled) {
+    const freeThreshold = ship.freeThreshold && ship.freeThreshold > 0 ? ship.freeThreshold : 0
+    const reachedFree = freeThreshold > 0 && payBeforeDeduct >= freeThreshold
+    const hasFee = ship.fee > 0
+    freeShipping = reachedFree || !hasFee
+    if (!freeShipping) {
+      shippingFee = round2(ship.fee)
+      breakdown.push({
+        key: 'shipping',
+        label: '运费',
+        kind: 'shipping',
+        baseAmount: round2(payBeforeDeduct),
+        saved: shippingFee,
+        affectsPay: true,
+        note: freeThreshold > 0 ? `券后 ¥${round2(payBeforeDeduct)} 未满 ¥${freeThreshold}，需付运费` : undefined
+      })
+    } else if (freeThreshold > 0 && reachedFree) {
+      breakdown.push({
+        key: 'shipping',
+        label: '运费',
+        kind: 'shipping',
+        baseAmount: round2(payBeforeDeduct),
+        saved: 0,
+        affectsPay: true,
+        note: `券后 ¥${round2(payBeforeDeduct)} 已满 ¥${freeThreshold}，包邮`
+      })
+    }
+  }
+
+  const finalPay = round2(Math.max(0, goodsPay + shippingFee))
 
   // 在明细开头放一个「商品原价合计」锚点，便于阅读
   breakdown.unshift({
@@ -209,7 +261,7 @@ function calcCore(input: CalcInput, stripMember: boolean): CoreResult {
     note: `单品折后合计 ¥${round2(goodsAmount)}`
   })
 
-  return { originalTotal, goodsAmount, finalPay, breakdown, cashback }
+  return { originalTotal, goodsAmount, goodsPay, shippingFee, freeShipping, finalPay, breakdown, cashback }
 }
 
 function multiBuyNote(mb?: MultiBuy): string {
@@ -217,7 +269,7 @@ function multiBuyNote(mb?: MultiBuy): string {
   if (mb.type === 'secondHalf') return '第二件半价'
   if (mb.type === 'buyNGetOneFree') return `买${mb.m ?? 1}免1`
   if (mb.type === 'fullMDiscount')
-    return `满${mb.m ?? 1}件打${Math.round((mb.discountRate ?? 1) * 1000) / 100}折`
+    return `满${mb.m ?? 1}件打${Math.round(normalizeRate(mb.discountRate) * 1000) / 100}折`
   return ''
 }
 
@@ -235,7 +287,12 @@ function buildCombo(input: CalcInput, goodsAmount: number): ComboSuggestion[] {
     if (base >= threshold) continue
 
     const gap = round2(threshold - base)
-    const reduce = p.reduce != null ? p.reduce : p.discountRate != null ? round2(base * (1 - p.discountRate)) : 0
+    const reduce =
+      p.reduce != null
+        ? Math.max(0, p.reduce)
+        : p.discountRate != null
+          ? round2(base * (1 - normalizeRate(p.discountRate)))
+          : 0
     const worthIt = reduce > gap
     list.push({
       promotionId: p.id,
@@ -285,11 +342,15 @@ function buildMember(input: CalcInput): MemberInfo | undefined {
 export function calculate(input: CalcInput): CalcResult {
   const core = calcCore(input, false)
   const totalSaved = round2(core.originalTotal - core.finalPay)
-  const savedRate = core.originalTotal > 0 ? round2((totalSaved / core.originalTotal) * 1000) / 1000 : 0
+  const savedRate =
+    core.originalTotal > 0 ? round2((totalSaved / core.originalTotal) * 1000) / 1000 : 0
 
   return {
     originalTotal: round2(core.originalTotal),
     goodsAmount: round2(core.goodsAmount),
+    goodsPay: core.goodsPay,
+    shippingFee: core.shippingFee,
+    freeShipping: core.freeShipping,
     finalPay: core.finalPay,
     totalSaved,
     savedRate,

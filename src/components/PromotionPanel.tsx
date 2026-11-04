@@ -1,5 +1,6 @@
 import type { Promotion, PromotionType, Scope } from '../engine/types'
-import { uid } from '../utils/helpers'
+import { normalizeRateInput, rateLabel, uid } from '../utils/helpers'
+import NumberInput from './NumberInput'
 
 interface Props {
   promotions: Promotion[]
@@ -51,14 +52,20 @@ export default function PromotionPanel({ promotions, onChange }: Props) {
       </div>
 
       {promotions.length === 0 && (
-        <p className="text-sm text-slate-400 py-4 text-center">还没加优惠，用上面按钮添加。</p>
+        <div className="py-6 text-center animate-fade-up">
+          <div className="text-3xl mb-2">🎫</div>
+          <p className="text-sm font-medium text-slate-600">还没有优惠</p>
+          <p className="text-xs text-slate-400 mt-1">
+            有满减、券、会员折扣就点上面加一条；没有也能算，直接看裸价
+          </p>
+        </div>
       )}
 
       <div className="space-y-3">
         {promotions.map((p) => (
           <div key={p.id} className="rounded-xl border border-slate-100 p-3 bg-slate-50/50">
             <div className="flex gap-2 items-center">
-              <span className="tag bg-brand/10 text-brand">{typeLabel(p.type)}</span>
+              <span className="tag bg-brand/10 text-brand shrink-0">{typeLabel(p.type)}</span>
               <input
                 className="input flex-1"
                 placeholder="备注（如：店铺满减）"
@@ -90,47 +97,48 @@ export default function PromotionPanel({ promotions, onChange }: Props) {
                 </label>
                 <label className="text-xs text-slate-500">
                   满 X 元
-                  <input
+                  <NumberInput
                     className="input mt-1"
-                    type="number"
-                    min="0"
-                    value={p.threshold ?? ''}
-                    onChange={(e) => update(p.id, { threshold: Number(e.target.value) })}
+                    value={p.threshold}
+                    min={0}
+                    placeholder="如 200"
+                    ariaLabel="满多少元"
+                    onChange={(v) => update(p.id, { threshold: v ?? 0 })}
                   />
                 </label>
                 <label className="text-xs text-slate-500">
                   减 Y 元
-                  <input
+                  <NumberInput
                     className="input mt-1"
-                    type="number"
-                    min="0"
-                    value={p.reduce ?? ''}
+                    value={p.reduce}
+                    min={0}
                     placeholder="填减额或打折"
-                    onChange={(e) =>
-                      update(p.id, {
-                        reduce: e.target.value === '' ? undefined : Number(e.target.value),
-                        discountRate: undefined
-                      })
-                    }
+                    ariaLabel="减多少元"
+                    onChange={(v) => update(p.id, { reduce: v, discountRate: undefined })}
                   />
                 </label>
                 <label className="text-xs text-slate-500">
                   或打几折
-                  <input
+                  <NumberInput
                     className="input mt-1"
-                    type="number"
-                    min="0.01"
-                    max="1"
-                    step="0.01"
-                    value={p.discountRate ?? ''}
-                    placeholder="0.9 = 9折"
-                    onChange={(e) =>
+                    value={p.discountRate}
+                    min={0.1}
+                    max={1}
+                    normalize={normalizeRateInput}
+                    placeholder="9 = 9折"
+                    ariaLabel="打几折"
+                    onChange={(v) =>
                       update(p.id, {
-                        discountRate: e.target.value === '' ? undefined : Number(e.target.value),
+                        discountRate: v == null ? undefined : normalizeRateInput(v),
                         reduce: undefined
                       })
                     }
                   />
+                  {p.discountRate != null && (
+                    <span className="text-[11px] text-brand">
+                      = {rateLabel(normalizeRateInput(p.discountRate))}
+                    </span>
+                  )}
                 </label>
               </div>
             )}
@@ -138,25 +146,30 @@ export default function PromotionPanel({ promotions, onChange }: Props) {
             {p.type === 'member' && (
               <div className="grid grid-cols-2 gap-2 mt-2">
                 <label className="text-xs text-slate-500">
-                  会员折扣（0.9=9折）
-                  <input
+                  会员折扣
+                  <NumberInput
                     className="input mt-1"
-                    type="number"
-                    min="0.01"
-                    max="1"
-                    step="0.01"
-                    value={p.memberDiscountRate ?? ''}
-                    onChange={(e) => update(p.id, { memberDiscountRate: Number(e.target.value) })}
+                    value={p.memberDiscountRate}
+                    min={0.1}
+                    max={1}
+                    normalize={normalizeRateInput}
+                    placeholder="9 = 9折"
+                    ariaLabel="会员折扣"
+                    onChange={(v) => update(p.id, { memberDiscountRate: normalizeRateInput(v ?? 1) })}
                   />
+                  <span className="text-[11px] text-brand">
+                    = {rateLabel(normalizeRateInput(p.memberDiscountRate ?? 1))}
+                  </span>
                 </label>
                 <label className="text-xs text-slate-500">
                   会员年费（回本测算）
-                  <input
+                  <NumberInput
                     className="input mt-1"
-                    type="number"
-                    min="0"
-                    value={p.annualFee ?? ''}
-                    onChange={(e) => update(p.id, { annualFee: Number(e.target.value) })}
+                    value={p.annualFee}
+                    min={0}
+                    placeholder="如 88"
+                    ariaLabel="会员年费"
+                    onChange={(v) => update(p.id, { annualFee: v ?? 0 })}
                   />
                 </label>
               </div>
@@ -166,25 +179,24 @@ export default function PromotionPanel({ promotions, onChange }: Props) {
               <div className="grid grid-cols-2 gap-2 mt-2">
                 <label className="text-xs text-slate-500">
                   抵扣额
-                  <input
+                  <NumberInput
                     className="input mt-1"
-                    type="number"
-                    min="0"
-                    value={p.amount ?? ''}
-                    onChange={(e) => update(p.id, { amount: Number(e.target.value) })}
+                    value={p.amount}
+                    min={0}
+                    placeholder="如 10"
+                    ariaLabel="抵扣额"
+                    onChange={(v) => update(p.id, { amount: v ?? 0 })}
                   />
                 </label>
                 <label className="text-xs text-slate-500">
                   封顶（可选）
-                  <input
+                  <NumberInput
                     className="input mt-1"
-                    type="number"
-                    min="0"
-                    value={p.cap ?? ''}
+                    value={p.cap}
+                    min={0}
                     placeholder="不填不封顶"
-                    onChange={(e) =>
-                      update(p.id, { cap: e.target.value === '' ? undefined : Number(e.target.value) })
-                    }
+                    ariaLabel="抵扣封顶"
+                    onChange={(v) => update(p.id, { cap: v })}
                   />
                 </label>
               </div>
@@ -193,28 +205,26 @@ export default function PromotionPanel({ promotions, onChange }: Props) {
             {p.type === 'cashback' && (
               <div className="grid grid-cols-2 gap-2 mt-2">
                 <label className="text-xs text-slate-500">
-                  返现比例（0.05=5%）
-                  <input
+                  返现比例（%）
+                  <NumberInput
                     className="input mt-1"
-                    type="number"
-                    min="0"
-                    max="1"
-                    step="0.01"
-                    value={p.cashbackRate ?? ''}
-                    onChange={(e) => update(p.id, { cashbackRate: Number(e.target.value) })}
+                    value={p.cashbackRate != null ? Math.round(p.cashbackRate * 1000) / 10 : undefined}
+                    min={0}
+                    max={100}
+                    placeholder="如 5 表示 5%"
+                    ariaLabel="返现比例百分比"
+                    onChange={(v) => update(p.id, { cashbackRate: (v ?? 0) / 100 })}
                   />
                 </label>
                 <label className="text-xs text-slate-500">
                   固定返现额
-                  <input
+                  <NumberInput
                     className="input mt-1"
-                    type="number"
-                    min="0"
-                    value={p.cashbackAmount ?? ''}
+                    value={p.cashbackAmount}
+                    min={0}
                     placeholder="可选"
-                    onChange={(e) =>
-                      update(p.id, { cashbackAmount: e.target.value === '' ? undefined : Number(e.target.value) })
-                    }
+                    ariaLabel="固定返现额"
+                    onChange={(v) => update(p.id, { cashbackAmount: v })}
                   />
                 </label>
               </div>

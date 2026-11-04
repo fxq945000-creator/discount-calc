@@ -1,5 +1,6 @@
 import type { Item, MultiBuy, MultiBuyType } from '../engine/types'
-import { uid } from '../utils/helpers'
+import { normalizeRateInput, rateLabel, uid } from '../utils/helpers'
+import NumberInput from './NumberInput'
 
 interface Props {
   items: Item[]
@@ -86,25 +87,25 @@ export default function ItemEditor({ items, onChange, onLoadSample }: Props) {
             <div className="grid grid-cols-2 gap-2 mt-2">
               <label className="text-xs text-slate-500">
                 原价（单价）
-                <input
+                <NumberInput
                   className="input mt-1"
-                  type="number"
-                  min="0"
-                  step="0.01"
                   value={it.originalPrice}
-                  onChange={(e) => update(it.id, { originalPrice: Number(e.target.value) })}
+                  min={0}
+                  placeholder="如 299"
+                  ariaLabel="原价"
+                  onChange={(v) => update(it.id, { originalPrice: v ?? 0 })}
                 />
               </label>
               <label className="text-xs text-slate-500">
                 数量
-                <input
+                <NumberInput
                   className="input mt-1"
-                  type="number"
-                  min="1"
-                  step="1"
                   value={it.quantity}
-                  onChange={(e) =>
-                    update(it.id, { quantity: Math.max(1, Math.floor(Number(e.target.value) || 1)) })
+                  min={1}
+                  placeholder="1"
+                  ariaLabel="数量"
+                  onChange={(v) =>
+                    update(it.id, { quantity: Math.max(1, Math.floor(v ?? 1)) })
                   }
                 />
               </label>
@@ -122,16 +123,13 @@ export default function ItemEditor({ items, onChange, onLoadSample }: Props) {
               {it.isMemberPrice && (
                 <label className="flex items-center gap-1 text-xs text-slate-500">
                   会员单价
-                  <input
+                  <NumberInput
                     className="input w-24"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={it.memberPrice ?? ''}
+                    value={it.memberPrice}
+                    min={0}
                     placeholder="如 80"
-                    onChange={(e) =>
-                      update(it.id, { memberPrice: e.target.value === '' ? undefined : Number(e.target.value) })
-                    }
+                    ariaLabel="会员单价"
+                    onChange={(v) => update(it.id, { memberPrice: v })}
                   />
                 </label>
               )}
@@ -155,13 +153,15 @@ export default function ItemEditor({ items, onChange, onLoadSample }: Props) {
               {it.multiBuy?.type === 'buyNGetOneFree' && (
                 <label className="text-xs text-slate-500">
                   买几件
-                  <input
+                  <NumberInput
                     className="input w-20 mt-1"
-                    type="number"
-                    min="1"
                     value={it.multiBuy.m ?? 2}
-                    onChange={(e) =>
-                      update(it.id, { multiBuy: { ...it.multiBuy!, m: Math.max(1, Number(e.target.value)) } })
+                    min={1}
+                    ariaLabel="买几件"
+                    onChange={(v) =>
+                      update(it.id, {
+                        multiBuy: { ...it.multiBuy!, m: Math.max(1, Math.floor(v ?? 1)) }
+                      })
                     }
                   />
                 </label>
@@ -170,32 +170,38 @@ export default function ItemEditor({ items, onChange, onLoadSample }: Props) {
                 <>
                   <label className="text-xs text-slate-500">
                     满几件
-                    <input
+                    <NumberInput
                       className="input w-20 mt-1"
-                      type="number"
-                      min="1"
                       value={it.multiBuy.m ?? 3}
-                      onChange={(e) =>
-                        update(it.id, { multiBuy: { ...it.multiBuy!, m: Math.max(1, Number(e.target.value)) } })
+                      min={1}
+                      ariaLabel="满几件"
+                      onChange={(v) =>
+                        update(it.id, {
+                          multiBuy: { ...it.multiBuy!, m: Math.max(1, Math.floor(v ?? 1)) }
+                        })
                       }
                     />
                   </label>
                   <label className="text-xs text-slate-500">
                     打几折
-                    <input
+                    <NumberInput
                       className="input w-20 mt-1"
-                      type="number"
-                      min="0.1"
-                      max="1"
-                      step="0.01"
                       value={it.multiBuy.discountRate ?? 0.8}
-                      onChange={(e) =>
+                      min={0.1}
+                      max={1}
+                      normalize={normalizeRateInput}
+                      placeholder="0.8"
+                      ariaLabel="打几折"
+                      onChange={(v) =>
                         update(it.id, {
-                          multiBuy: { ...it.multiBuy!, discountRate: Math.min(1, Math.max(0.01, Number(e.target.value))) }
+                          multiBuy: { ...it.multiBuy!, discountRate: normalizeRateInput(v ?? 1) }
                         })
                       }
                     />
                   </label>
+                  <span className="text-xs text-slate-400 pb-2">
+                    = {rateLabel(normalizeRateInput(it.multiBuy.discountRate ?? 0.8))}
+                  </span>
                 </>
               )}
             </div>

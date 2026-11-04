@@ -77,20 +77,31 @@ export interface Promotion {
 /** 规则预设 */
 export type PresetKey = 'taobao' | 'jd' | 'pdd' | 'custom'
 
+/** 运费设置 */
+export interface Shipping {
+  /** 是否计入运费 */
+  enabled: boolean
+  /** 固定运费（元） */
+  fee: number
+  /** 满 X 元包邮（0 / undefined = 无包邮门槛；判断基准为「券后实付」） */
+  freeThreshold?: number
+}
+
 export interface CalcInput {
   items: Item[]
   promotions: Promotion[]
   preset?: PresetKey
+  shipping?: Shipping
 }
 
 /** 计算明细中的一步 */
 export interface BreakdownEntry {
   key: string
   label: string
-  kind: PromotionType | 'memberPrice' | 'multiBuy' | 'goods'
+  kind: PromotionType | 'memberPrice' | 'multiBuy' | 'goods' | 'shipping'
   /** 计费基数（这一步用来判断/计算的金额） */
   baseAmount: number
-  /** 本步优惠金额（正数 = 减钱）；返现为返现额（affectsPay=false） */
+  /** 本步优惠金额（正数 = 减钱）；返现为返现额（affectsPay=false）；运费为加收金额 */
   saved: number
   /** 是否影响最终到手价（返现不影响） */
   affectsPay: boolean
@@ -129,11 +140,17 @@ export interface CalcResult {
   originalTotal: number
   /** 单品折后合计（各满减/券的计费基数） */
   goodsAmount: number
-  /** 到手价（实付） */
+  /** 商品实付（不含运费） */
+  goodsPay: number
+  /** 运费（未包邮时 > 0） */
+  shippingFee: number
+  /** 是否免运费（含无门槛判定） */
+  freeShipping: boolean
+  /** 到手价（实付，含运费） */
   finalPay: number
-  /** 省了多少（原价 - 到手价） */
+  /** 省了多少（原价 + 运费口径：原价 - 到手价，可能为负） */
   totalSaved: number
-  /** 省了百分之多少 */
+  /** 省了百分之多少（可能为负） */
   savedRate: number
   /** 逐层明细 */
   breakdown: BreakdownEntry[]

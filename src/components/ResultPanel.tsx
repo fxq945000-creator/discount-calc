@@ -8,6 +8,7 @@ interface Props {
 
 export default function ResultPanel({ result, empty }: Props) {
   const level = dealLevel(result.savedRate)
+  const isLoss = result.totalSaved < 0
 
   if (empty) {
     return (
@@ -20,7 +21,7 @@ export default function ResultPanel({ result, empty }: Props) {
           到手价、省了多少，以及每一层优惠的明细。
         </p>
         <div className="mt-5 text-xs text-slate-300 leading-relaxed">
-          顺序：商品原价 → 会员/多件折 → 满减 → 优惠券 → 红包积分
+          顺序：商品原价 → 会员/多件折 → 满减 → 优惠券 → 红包积分 → 运费
         </div>
       </div>
     )
@@ -34,14 +35,19 @@ export default function ResultPanel({ result, empty }: Props) {
       <div className="rounded-2xl bg-gradient-to-br from-brand to-brand-dark text-white p-5">
         <div className="text-sm opacity-90">到手价（实付）</div>
         <div className="text-4xl font-bold mt-1">{fmt(result.finalPay)}</div>
-        <div className="flex items-center gap-3 mt-3 text-sm opacity-95">
+        {result.shippingFee > 0 && (
+          <div className="text-xs opacity-80 mt-1">其中运费 {fmt(result.shippingFee)}</div>
+        )}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mt-3 text-sm opacity-95">
           <span>
             原价 <s>{fmt(result.originalTotal)}</s>
           </span>
-          <span>
-            省 {fmt(result.totalSaved)}
+          <span className={isLoss ? 'text-rose-200' : ''}>
+            {isLoss ? `多花 ${fmt(-result.totalSaved)}` : `省 ${fmt(result.totalSaved)}`}
           </span>
-          <span className="tag bg-white/25 text-white">省 {pct(result.savedRate)}</span>
+          <span className="tag bg-white/25 text-white">
+            {isLoss ? `多花 ${pct(-result.savedRate)}` : `省 ${pct(result.savedRate)}`}
+          </span>
           <span className={`tag ${level.cls}`}>{level.label}</span>
         </div>
       </div>
@@ -53,6 +59,7 @@ export default function ResultPanel({ result, empty }: Props) {
           {result.breakdown.map((b) => {
             const isAnchor = b.kind === 'goods'
             const isCashback = b.kind === 'cashback'
+            const isShipping = b.kind === 'shipping'
             return (
               <div
                 key={b.key}
@@ -65,6 +72,12 @@ export default function ResultPanel({ result, empty }: Props) {
                 <div className="text-right shrink-0 ml-2">
                   {isAnchor ? (
                     <span className="text-slate-500">{fmt(b.baseAmount)}</span>
+                  ) : isShipping ? (
+                    b.saved > 0 ? (
+                      <span className="text-rose-500">+ {fmt(b.saved)}</span>
+                    ) : (
+                      <span className="text-emerald-600">包邮</span>
+                    )
                   ) : isCashback ? (
                     <span className="text-sky-600">返 +{fmt(b.saved)}</span>
                   ) : b.saved > 0 ? (
