@@ -4,8 +4,7 @@ import type {
   CalcResult,
   ComboSuggestion,
   MemberInfo,
-  MultiBuy,
-  Promotion
+  MultiBuy
 } from './types'
 import { PRESETS } from './presets'
 

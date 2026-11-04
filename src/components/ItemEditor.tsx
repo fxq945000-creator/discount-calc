@@ -4,6 +4,7 @@ import { uid } from '../utils/helpers'
 interface Props {
   items: Item[]
   onChange: (items: Item[]) => void
+  onLoadSample?: () => void
 }
 
 const MULTI_OPTIONS: { value: MultiBuyType | 'none'; label: string }[] = [
@@ -13,7 +14,7 @@ const MULTI_OPTIONS: { value: MultiBuyType | 'none'; label: string }[] = [
   { value: 'fullMDiscount', label: '满 M 件打折' }
 ]
 
-export default function ItemEditor({ items, onChange }: Props) {
+export default function ItemEditor({ items, onChange, onLoadSample }: Props) {
   const update = (id: string, patch: Partial<Item>) =>
     onChange(items.map((it) => (it.id === id ? { ...it, ...patch } : it)))
   const remove = (id: string) => onChange(items.filter((it) => it.id !== id))
@@ -26,7 +27,7 @@ export default function ItemEditor({ items, onChange }: Props) {
   const setMulti = (id: string, type: MultiBuyType | 'none', cur?: MultiBuy) => {
     if (type === 'none') return update(id, { multiBuy: undefined })
     if (cur?.type === type) return
-    const base = cur ?? {}
+    const base: MultiBuy = cur ?? { type }
     const mb: MultiBuy =
       type === 'secondHalf'
         ? { type }
@@ -46,7 +47,21 @@ export default function ItemEditor({ items, onChange }: Props) {
       </div>
 
       {items.length === 0 && (
-        <p className="text-sm text-slate-400 py-4 text-center">还没有商品，点上方按钮添加。</p>
+        <div className="py-8 text-center animate-fade-up">
+          <div className="text-4xl mb-3">🧾</div>
+          <p className="text-sm font-medium text-slate-600">还没有商品</p>
+          <p className="text-xs text-slate-400 mt-1">先加一件要买的东西，填上原价和数量就行</p>
+          <div className="flex items-center justify-center gap-2 mt-4">
+            <button className="btn btn-primary" onClick={add}>
+              + 添加第一个商品
+            </button>
+            {onLoadSample && (
+              <button className="btn btn-ghost" onClick={onLoadSample}>
+                看看示例
+              </button>
+            )}
+          </div>
+        </div>
       )}
 
       <div className="space-y-3">

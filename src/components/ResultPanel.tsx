@@ -3,10 +3,28 @@ import { dealLevel, fmt, pct } from '../utils/helpers'
 
 interface Props {
   result: CalcResult
+  empty?: boolean
 }
 
-export default function ResultPanel({ result }: Props) {
+export default function ResultPanel({ result, empty }: Props) {
   const level = dealLevel(result.savedRate)
+
+  if (empty) {
+    return (
+      <div className="card p-8 text-center animate-fade-up">
+        <div className="text-4xl mb-3">📊</div>
+        <h2 className="font-semibold text-slate-700">还等着你填数据</h2>
+        <p className="text-sm text-slate-400 mt-2 leading-relaxed">
+          填好商品和优惠后，这里会实时显示
+          <br />
+          到手价、省了多少，以及每一层优惠的明细。
+        </p>
+        <div className="mt-5 text-xs text-slate-300 leading-relaxed">
+          顺序：商品原价 → 会员/多件折 → 满减 → 优惠券 → 红包积分
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="card p-4">

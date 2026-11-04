@@ -10,11 +10,12 @@ export interface AppState {
 let n = 0
 const id = (p: string) => `${p}${++n}`
 
+/** 空白初始状态：默认无任何商品与优惠，保持纯净 */
 export function emptyState(): AppState {
   return { preset: 'taobao', items: [], promotions: [] }
 }
 
-/** 默认演示数据，帮助用户理解用法（可一键清空） */
+/** 示例数据：仅在用户主动点击「看示例 / 载入示例」时使用，不再作为初始状态 */
 export function sampleState(): AppState {
   return {
     preset: 'taobao',
