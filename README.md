@@ -25,8 +25,21 @@ npm run test       # 运行计算引擎单元测试（Vitest）
 
 ## 部署（任选其一，均为静态托管）
 
-- **GitHub Pages / 任意静态空间**：把 `dist/` 目录整体上传即可。
-- **Vercel / Netlify**：连接仓库，构建命令 `npm run build`，发布目录 `dist`。
+**已上线地址**：https://fxq945000-creator.github.io/discount-calc/
+
+### 自动部署（当前使用）
+
+仓库已配置 GitHub Actions：**每次向 `main` 分支提交，自动构建并发布到 `gh-pages` 分支**，GitHub Pages 再从该分支托管。
+
+- 工作流文件：`.github/workflows/deploy.yml`
+- 触发方式：`push` 到 `main`，或在 Actions 页面手动 `Run workflow`
+- 也可以在 GitHub 网页上直接改文件并提交 —— 同样会自动重新发布
+- 构建时注入 `PAGES_BUILD=1`，使资源路径带 `/discount-calc/` 前缀（本地开发不受影响）
+
+### 其他方式
+
+- **任意静态空间**：把 `dist/` 目录整体上传即可。
+- **Vercel / Netlify**：连接仓库，构建命令 `npm run build`，发布目录 `dist`（部署在根路径，**不要**设 `PAGES_BUILD`，否则子路径会不匹配）。
 - 无需服务器、无需数据库。
 
 ## 安装为 App（PWA）
