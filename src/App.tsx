@@ -7,6 +7,7 @@ import ResultPanel from './components/ResultPanel'
 import HistoryDrawer from './components/HistoryDrawer'
 import CompareDrawer from './components/CompareDrawer'
 import Onboarding from './components/Onboarding'
+import InstallButton from './components/InstallButton'
 import { calculate } from './engine/discountEngine'
 import { PRESET_LIST } from './engine/presets'
 import { emptyState, sampleState, toPlan, type AppState } from './store/state'
@@ -184,6 +185,7 @@ export default function App() {
           <button className="btn btn-ghost" onClick={onShare}>
             分享
           </button>
+          <InstallButton />
           <button
             className="btn btn-ghost"
             disabled={isEmpty}
